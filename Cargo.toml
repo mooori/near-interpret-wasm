@@ -1,0 +1,10 @@
+[package]
+name = "near-interpret-wasm"
+description = "Interpret wasm in wasm and benchmark gas usage"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "1.29.1", features = ["full"] }
+workspaces = "0.7.0"
