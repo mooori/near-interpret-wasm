@@ -3,21 +3,37 @@ use workspaces::Worker;
 
 #[tokio::main]
 async fn main() {
-    let worker = workspaces::sandbox().await.expect("should spin up sandbox");
-    profile_gas_usage(&worker, "./contracts/calculations", "cpu_ram_soak")
+    let wasm_calculations = workspaces::compile_project("contracts/calculations")
         .await
-        .expect("should profile gas usage");
+        .expect("should compile contracts/calculations");
+    let worker = workspaces::sandbox().await.expect("should spin up sandbox");
+
+    profile_gas_usage(
+        &worker,
+        "contracts/calculations",
+        wasm_calculations,
+        "cpu_ram_soak",
+        vec![],
+    )
+    .await
+    .expect("should profile gas usage");
 }
 
 async fn profile_gas_usage(
     worker: &Worker<Sandbox>,
-    project_path: &str,
+    contract_name: &str,
+    contract_wasm: Vec<u8>,
     method_name: &str,
+    method_args: Vec<u8>,
 ) -> anyhow::Result<()> {
-    let wasm = workspaces::compile_project(project_path).await?;
-    let contract = worker.dev_deploy(&wasm).await?;
+    let contract = worker.dev_deploy(&contract_wasm).await?;
 
-    let result = contract.call(method_name).max_gas().transact().await?;
+    let result = contract
+        .call(method_name)
+        .args(method_args)
+        .max_gas()
+        .transact()
+        .await?;
     let result = match result.into_result() {
         Ok(result) => result,
         Err(err) => return Err(anyhow::anyhow!("execution failed: {err}")),
@@ -34,7 +50,7 @@ async fn profile_gas_usage(
     );
     let gas_burnt = receipts[0].gas_burnt;
     println!(
-        "Gas used by the transaction calling `{method_name}` on {project_path}:\n {gas_burnt}"
+        "Gas used by the transaction calling `{method_name}` on {contract_name}:\n {gas_burnt}"
     );
 
     Ok(())
