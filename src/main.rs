@@ -20,7 +20,7 @@ async fn profile_gas_usage(
     let result = contract.call(method_name).max_gas().transact().await?;
     let result = match result.into_result() {
         Ok(result) => result,
-        Err(err) => return Err(anyhow::anyhow!("execution failed: {err}")),
+        Err(err) => anyhow::bail!("execution failed: {err}"),
     };
     let receipts = result.receipt_outcomes();
 
