@@ -6,5 +6,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+anyhow = "1.0"
 tokio = { version = "1.29.1", features = ["full"] }
-workspaces = "0.7.0"
+# Using feature `unstable` for `workspaces::compile_project`.
+workspaces = { version = "0.7.0", features = ["unstable"] }

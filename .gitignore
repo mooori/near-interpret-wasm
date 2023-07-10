@@ -1,1 +1,4 @@
+/contracts/*/target
 /target
+
+/.vscode
