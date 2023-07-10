@@ -1,31 +1,35 @@
 use workspaces::network::Sandbox;
+use workspaces::types::Gas;
 use workspaces::Worker;
 
 #[tokio::main]
 async fn main() {
-    let wasm_calculations = workspaces::compile_project("contracts/calculations")
-        .await
-        .expect("should compile contracts/calculations");
     let worker = workspaces::sandbox().await.expect("should spin up sandbox");
 
-    profile_gas_usage(
-        &worker,
-        "contracts/calculations",
-        wasm_calculations,
-        "cpu_ram_soak",
-        vec![],
-    )
-    .await
-    .expect("should profile gas usage");
+    let project_path_native = "./contracts/calculations";
+    let method_name_native = "cpu_ram_soak";
+    let wasm_calculations = workspaces::compile_project(project_path_native)
+        .await
+        .expect("should compile contracts/calculations");
+    let gas_burnt_native =
+        profile_gas_usage(&worker, wasm_calculations, method_name_native, vec![])
+            .await
+            .expect("should profile gas usage");
+    print_gas_burnt(project_path_native, method_name_native, gas_burnt_native);
 }
 
+/// Returns the `Gas` burnt by the receipt corresponding to the `FunctionCallAction` of calling
+/// `method_name` on contract `project_path` deployed to `worker`.
+///
+/// Gas burnt by receipts for actions other than `FunctionCallAction` is not considered. They are
+/// due to overhead unrelated to the calculations to be benchmarked, like transaction to receipt
+/// conversion and gas refunds.
 async fn profile_gas_usage(
     worker: &Worker<Sandbox>,
-    contract_name: &str,
     contract_wasm: Vec<u8>,
     method_name: &str,
     method_args: Vec<u8>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Gas> {
     let contract = worker.dev_deploy(&contract_wasm).await?;
 
     let result = contract
@@ -36,22 +40,24 @@ async fn profile_gas_usage(
         .await?;
     let result = match result.into_result() {
         Ok(result) => result,
-        Err(err) => return Err(anyhow::anyhow!("execution failed: {err}")),
+        Err(err) => anyhow::bail!("execution failed: {err}"),
     };
     let receipts = result.receipt_outcomes();
 
-    // The `FunctionCall` is the first and only action in above transaction. Only consider the gas
-    // burnt by this receipt to ignore overhead unrelated to the calculations to be benchmarked
-    // (transaction to receipt conversion, gas refunds).
+    // The `FunctionCall` is the first and only action in above transaction. We want to consider
+    // only the gas burnt by the corresponding receipt.
     assert_eq!(
         2,
         receipts.len(),
         "transaction should generate two receipts (function call, gas refunds)",
     );
     let gas_burnt = receipts[0].gas_burnt;
-    println!(
-        "Gas used by the transaction calling `{method_name}` on {contract_name}:\n {gas_burnt}"
-    );
 
-    Ok(())
+    Ok(gas_burnt)
+}
+
+fn print_gas_burnt(project_path: &str, method_name: &str, gas_burnt: Gas) {
+    println!(
+        "Gas used by the transaction calling `{method_name}` on {project_path}:\n {gas_burnt}"
+    );
 }
