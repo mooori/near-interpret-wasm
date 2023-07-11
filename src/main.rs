@@ -12,10 +12,21 @@ async fn main() {
         .await
         .expect("should compile contracts/calculations");
     let gas_burnt_native =
-        profile_gas_usage(&worker, wasm_calculations, method_name_native, vec![])
+        profile_gas_usage(&worker, &wasm_calculations, method_name_native, vec![])
             .await
-            .expect("should profile gas usage");
+            .expect("should profile gas usage (native calculations");
     print_gas_burnt(project_path_native, method_name_native, gas_burnt_native);
+
+    let project_path_wasmi = "./contracts/calculations-in-wasmi";
+    let method_name_wasmi = "interpret_cpu_ram_soak";
+    let wasm_wasmi = workspaces::compile_project(project_path_wasmi)
+        .await
+        .expect("should compile contracts/calculations-calculations-in-wasmi");
+    let gas_burnt_wasmi =
+        profile_gas_usage(&worker, &wasm_wasmi, method_name_wasmi, wasm_calculations)
+            .await
+            .expect("should profile gas usage (calculations in wasmi)");
+    print_gas_burnt(project_path_wasmi, method_name_wasmi, gas_burnt_wasmi);
 }
 
 /// Returns the `Gas` burnt by the receipt corresponding to the `FunctionCallAction` of calling
@@ -26,7 +37,7 @@ async fn main() {
 /// conversion and gas refunds.
 async fn profile_gas_usage(
     worker: &Worker<Sandbox>,
-    contract_wasm: Vec<u8>,
+    contract_wasm: &[u8],
     method_name: &str,
     method_args: Vec<u8>,
 ) -> anyhow::Result<Gas> {
