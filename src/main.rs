@@ -7,6 +7,9 @@ use workspaces::Worker;
 /// interpreting wasm.
 const METHOD_NAME: &str = "cpu_ram_soak";
 
+/// The number of iterations to execute in `contracts/calculations`.
+const LOOP_LIMIT: u32 = 100;
+
 #[tokio::main]
 async fn main() {
     let worker = workspaces::sandbox().await.expect("should spin up sandbox");
@@ -15,9 +18,13 @@ async fn main() {
     let wasm_calculations = workspaces::compile_project(project_path_native)
         .await
         .expect("should compile contracts/calculations");
-    let gas_burnt_native = profile_gas_usage(&worker, &wasm_calculations, vec![])
-        .await
-        .expect("should profile gas usage (native calculations");
+    let gas_burnt_native = profile_gas_usage(
+        &worker,
+        &wasm_calculations,
+        LOOP_LIMIT.to_le_bytes().to_vec(),
+    )
+    .await
+    .expect("should profile gas usage (native calculations");
     print_gas_burnt(project_path_native, gas_burnt_native);
 
     let project_path_wasmi = "./contracts/calculations-in-wasmi";
@@ -60,7 +67,10 @@ async fn profile_gas_usage(
     // executed in interpreted wasm. When interpreting wasm, the contract embedding the interpreter
     // is expected to forward guest logs to Near's `log_utf8`.
     // TODO make the number of loop iterations a parameter of `METHOD_NAME`, then remove hardcoded log here.
-    assert_eq!(vec!["Done 100 iterations!"], result.logs());
+    assert_eq!(
+        vec![format!("Done {LOOP_LIMIT} iterations!")],
+        result.logs()
+    );
 
     // The `FunctionCall` is the first and only action in above transaction. We want to consider
     // only the gas burnt by the corresponding receipt.
