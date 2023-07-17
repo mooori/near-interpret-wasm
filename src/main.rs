@@ -32,7 +32,8 @@ async fn main() {
         .await
         .expect("should compile contracts/calculations-calculations-in-wasmi");
     // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
-    let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, wasm_calculations)
+    let args: Vec<u8> = [LOOP_LIMIT.to_le_bytes().to_vec(), wasm_calculations].concat();
+    let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args)
         .await
         .expect("should profile gas usage (calculations in wasmi)");
     print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
@@ -59,14 +60,16 @@ async fn profile_gas_usage(
         .await?;
     let result = match result.into_result() {
         Ok(result) => result,
-        Err(err) => anyhow::bail!("execution failed: {err}"),
+        Err(err) => {
+            println!("logs: {:?}", err.logs());
+            anyhow::bail!("execution failed: {err}")
+        }
     };
     let receipts = result.receipt_outcomes();
 
     // Check logs to verify the calculations were executed. This is not obvious in case they are
     // executed in interpreted wasm. When interpreting wasm, the contract embedding the interpreter
     // is expected to forward guest logs to Near's `log_utf8`.
-    // TODO make the number of loop iterations a parameter of `METHOD_NAME`, then remove hardcoded log here.
     assert_eq!(
         vec![format!("Done {LOOP_LIMIT} iterations!")],
         result.logs()
