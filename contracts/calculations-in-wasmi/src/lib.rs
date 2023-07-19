@@ -38,10 +38,10 @@ impl HostState {
         }
     }
 
-    fn get_register_data(&self, register_id: u64) -> Vec<u8> {
+    fn get_register_data(&self, register_id: u64) -> &[u8] {
         match self.registers.get(&register_id) {
-            Some(data) => data.clone(),
-            None => vec![],
+            Some(data) => &data,
+            None => &[],
         }
     }
 }
@@ -93,13 +93,14 @@ pub unsafe fn cpu_ram_soak() {
     // `ptr`.
     let host_fn_read_register = Func::wrap(
         &mut store,
-        |caller: Caller<'_, HostState>, register_id: i64, ptr: i64| {
+        |mut caller: Caller<'_, HostState>, register_id: i64, ptr: i64| {
             let data = caller
                 .data()
-                .get_register_data(register_id.try_into().unwrap());
+                .get_register_data(register_id.try_into().unwrap())
+                .to_owned();
             let memory = get_exported_memory(&caller);
             memory
-                .write(caller, ptr.try_into().unwrap(), &data)
+                .write(&mut caller, ptr.try_into().unwrap(), &data)
                 .expect("should write memory");
         },
     );
