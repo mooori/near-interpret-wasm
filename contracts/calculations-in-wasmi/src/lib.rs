@@ -63,7 +63,7 @@ pub unsafe fn cpu_ram_soak() {
     assert!(input_data.len() >= min_input_len, "unexpected input");
 
     // Split input data. Cloning _small_ data to simplify ownership.
-    let loop_limit_bytes = input_data.drain(..4).collect::<Vec<u8>>().clone();
+    let loop_limit_bytes = input_data.drain(..4).collect::<Vec<u8>>();
     let wasm = input_data;
 
     // Set up host state. We want the guest to see loop_limit_bytes as its input.
@@ -81,7 +81,7 @@ pub unsafe fn cpu_ram_soak() {
     let host_fn_input = Func::wrap(
         &mut store,
         |mut caller: Caller<'_, HostState>, register_id: i64| {
-            let input = caller.data().input.clone();
+            let input = caller.data().input.to_vec();
             caller
                 .data_mut()
                 .registers
