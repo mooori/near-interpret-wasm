@@ -62,7 +62,7 @@ pub unsafe fn cpu_ram_soak() {
     let min_input_len = size_of::<u32>() + 1; // + 1 to verify wasm bytecode is not empty
     assert!(input_data.len() >= min_input_len, "unexpected input");
 
-    // Split input data. Cloning _small_ data to simplify ownership.
+    // Split input data.
     let loop_limit_bytes = input_data.drain(..4).collect::<Vec<u8>>();
     let wasm = input_data;
 
