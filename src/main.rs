@@ -1,3 +1,4 @@
+use clap::Parser;
 use workspaces::network::Sandbox;
 use workspaces::types::Gas;
 use workspaces::Worker;
@@ -7,11 +8,22 @@ use workspaces::Worker;
 /// interpreting wasm.
 const METHOD_NAME: &str = "cpu_ram_soak";
 
-/// The number of iterations to execute in `contracts/calculations`.
-const LOOP_LIMIT: u32 = 100;
+/// Benchmark gas usage of interpreting wasm.
+///
+/// A smart contract doing calculations is executed on Near and interpreted inside another Near
+/// contract to compare the resulting gas usage.
+#[derive(Parser, Debug)]
+#[command(version, about)]
+struct Args {
+    /// The number of times to loop calculations.
+    #[arg(long)]
+    loop_limit: u32,
+}
 
 #[tokio::main]
 async fn main() {
+    let cli_args = Args::parse();
+
     let worker = workspaces::sandbox().await.expect("should spin up sandbox");
 
     let project_path_native = "./contracts/calculations";
@@ -21,7 +33,8 @@ async fn main() {
     let gas_burnt_native = profile_gas_usage(
         &worker,
         &wasm_calculations,
-        LOOP_LIMIT.to_le_bytes().to_vec(),
+        cli_args.loop_limit.to_le_bytes().to_vec(),
+        cli_args.loop_limit,
     )
     .await
     .expect("should profile gas usage (native calculations");
@@ -32,15 +45,20 @@ async fn main() {
         .await
         .expect("should compile contracts/calculations-calculations-in-wasmi");
     // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
-    let args: Vec<u8> = [LOOP_LIMIT.to_le_bytes().to_vec(), wasm_calculations].concat();
-    let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args)
+    let args: Vec<u8> = [
+        cli_args.loop_limit.to_le_bytes().to_vec(),
+        wasm_calculations,
+    ]
+    .concat();
+    let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args, cli_args.loop_limit)
         .await
         .expect("should profile gas usage (calculations in wasmi)");
     print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
 }
 
 /// Returns the `Gas` burnt by the receipt corresponding to the `FunctionCallAction` of calling
-/// [`METHOD_NAME`] on contract `project_path` deployed to `worker`.
+/// [`METHOD_NAME`] on contract `project_path` deployed to `worker`. The logs of `contract_wasm` are
+/// used to verify that calculations were repeated `expected_loop_limit` times.
 ///
 /// Gas burnt by receipts for actions other than `FunctionCallAction` is not considered. They are
 /// due to overhead unrelated to the calculations to be benchmarked, like transaction to receipt
@@ -49,6 +67,7 @@ async fn profile_gas_usage(
     worker: &Worker<Sandbox>,
     contract_wasm: &[u8],
     method_args: Vec<u8>,
+    expected_loop_limit: u32,
 ) -> anyhow::Result<Gas> {
     let contract = worker.dev_deploy(&contract_wasm).await?;
 
@@ -71,7 +90,7 @@ async fn profile_gas_usage(
     // executed in interpreted wasm. When interpreting wasm, the contract embedding the interpreter
     // is expected to forward guest logs to Near's `log_utf8`.
     assert_eq!(
-        vec![format!("Done {LOOP_LIMIT} iterations!")],
+        vec![format!("Done {expected_loop_limit} iterations!")],
         result.logs()
     );
 
