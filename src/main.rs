@@ -20,22 +20,18 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     let cli_args = Args::parse();
 
-    let worker = workspaces::sandbox().await.expect("should spin up sandbox");
+    let worker = workspaces::sandbox().await?;
 
     let project_path_native = "./contracts/calculations";
-    let wasm_calculations = workspaces::compile_project(project_path_native)
-        .await
-        .expect("should compile contracts/calculations");
-    let contract_calculations = worker.dev_deploy(&wasm_calculations).await.unwrap();
+    let wasm_calculations = workspaces::compile_project(project_path_native).await?;
+    let contract_calculations = worker.dev_deploy(&wasm_calculations).await?;
 
     let project_path_wasmi = "./contracts/calculations-in-wasmi";
-    let wasm_wasmi = workspaces::compile_project(project_path_wasmi)
-        .await
-        .expect("should compile contracts/calculations-calculations-in-wasmi");
-    let contract_wasmi = worker.dev_deploy(&wasm_wasmi).await.unwrap();
+    let wasm_wasmi = workspaces::compile_project(project_path_wasmi).await?;
+    let contract_wasmi = worker.dev_deploy(&wasm_wasmi).await?;
 
     for loop_limit in cli_args.loop_limit {
         println!("loop_limit: {loop_limit}");
@@ -45,17 +41,16 @@ async fn main() {
             loop_limit.to_le_bytes().to_vec(),
             loop_limit,
         )
-        .await
-        .expect("should profile gas usage (native calculations");
+        .await?;
         print_gas_burnt(project_path_native, gas_burnt_native);
 
         // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
         let args: Vec<u8> = [loop_limit.to_le_bytes().to_vec(), wasm_calculations.clone()].concat();
-        let gas_burnt_wasmi = profile_gas_usage(&contract_wasmi, args, loop_limit)
-            .await
-            .expect("should profile gas usage (calculations in wasmi)");
+        let gas_burnt_wasmi = profile_gas_usage(&contract_wasmi, args, loop_limit).await?;
         print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
     }
+
+    Ok(())
 }
 
 /// Returns the `Gas` burnt by the receipt corresponding to the `FunctionCallAction` of calling
