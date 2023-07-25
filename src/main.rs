@@ -16,8 +16,8 @@ const METHOD_NAME: &str = "cpu_ram_soak";
 #[command(version, about)]
 struct Args {
     /// The number of times to loop calculations.
-    #[arg(long)]
-    loop_limit: u32,
+    #[arg(long, num_args=1.., value_delimiter=',')]
+    loop_limit: Vec<u32>,
 }
 
 #[tokio::main]
@@ -30,30 +30,32 @@ async fn main() {
     let wasm_calculations = workspaces::compile_project(project_path_native)
         .await
         .expect("should compile contracts/calculations");
-    let gas_burnt_native = profile_gas_usage(
-        &worker,
-        &wasm_calculations,
-        cli_args.loop_limit.to_le_bytes().to_vec(),
-        cli_args.loop_limit,
-    )
-    .await
-    .expect("should profile gas usage (native calculations");
-    print_gas_burnt(project_path_native, gas_burnt_native);
 
     let project_path_wasmi = "./contracts/calculations-in-wasmi";
     let wasm_wasmi = workspaces::compile_project(project_path_wasmi)
         .await
         .expect("should compile contracts/calculations-calculations-in-wasmi");
-    // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
-    let args: Vec<u8> = [
-        cli_args.loop_limit.to_le_bytes().to_vec(),
-        wasm_calculations,
-    ]
-    .concat();
-    let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args, cli_args.loop_limit)
+
+    for loop_limit in cli_args.loop_limit {
+        println!("loop_limit: {loop_limit}");
+
+        let gas_burnt_native = profile_gas_usage(
+            &worker,
+            &wasm_calculations,
+            loop_limit.to_le_bytes().to_vec(),
+            loop_limit,
+        )
         .await
-        .expect("should profile gas usage (calculations in wasmi)");
-    print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
+        .expect("should profile gas usage (native calculations");
+        print_gas_burnt(project_path_native, gas_burnt_native);
+
+        // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
+        let args: Vec<u8> = [loop_limit.to_le_bytes().to_vec(), wasm_calculations.clone()].concat();
+        let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args, loop_limit)
+            .await
+            .expect("should profile gas usage (calculations in wasmi)");
+        print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
+    }
 }
 
 /// Returns the `Gas` burnt by the receipt corresponding to the `FunctionCallAction` of calling
