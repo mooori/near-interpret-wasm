@@ -1,7 +1,6 @@
 use clap::Parser;
-use workspaces::network::Sandbox;
 use workspaces::types::Gas;
-use workspaces::Worker;
+use workspaces::Contract;
 
 /// The method to be called on contracts for benchmarking gas usage. It is expected to carry out the
 /// same calculations for every contract in `contracts`, either by executing them directly or by
@@ -30,18 +29,19 @@ async fn main() {
     let wasm_calculations = workspaces::compile_project(project_path_native)
         .await
         .expect("should compile contracts/calculations");
+    let contract_calculations = worker.dev_deploy(&wasm_calculations).await.unwrap();
 
     let project_path_wasmi = "./contracts/calculations-in-wasmi";
     let wasm_wasmi = workspaces::compile_project(project_path_wasmi)
         .await
         .expect("should compile contracts/calculations-calculations-in-wasmi");
+    let contract_wasmi = worker.dev_deploy(&wasm_wasmi).await.unwrap();
 
     for loop_limit in cli_args.loop_limit {
         println!("loop_limit: {loop_limit}");
 
         let gas_burnt_native = profile_gas_usage(
-            &worker,
-            &wasm_calculations,
+            &contract_calculations,
             loop_limit.to_le_bytes().to_vec(),
             loop_limit,
         )
@@ -51,7 +51,7 @@ async fn main() {
 
         // Passing `wasm_calculations` to interpret it in `wasm_wasi`.
         let args: Vec<u8> = [loop_limit.to_le_bytes().to_vec(), wasm_calculations.clone()].concat();
-        let gas_burnt_wasmi = profile_gas_usage(&worker, &wasm_wasmi, args, loop_limit)
+        let gas_burnt_wasmi = profile_gas_usage(&contract_wasmi, args, loop_limit)
             .await
             .expect("should profile gas usage (calculations in wasmi)");
         print_gas_burnt(project_path_wasmi, gas_burnt_wasmi);
@@ -66,13 +66,10 @@ async fn main() {
 /// due to overhead unrelated to the calculations to be benchmarked, like transaction to receipt
 /// conversion and gas refunds.
 async fn profile_gas_usage(
-    worker: &Worker<Sandbox>,
-    contract_wasm: &[u8],
+    contract: &Contract,
     method_args: Vec<u8>,
     expected_loop_limit: u32,
 ) -> anyhow::Result<Gas> {
-    let contract = worker.dev_deploy(&contract_wasm).await?;
-
     let result = contract
         .call(METHOD_NAME)
         .args(method_args)
