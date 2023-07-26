@@ -16,7 +16,7 @@ const METHOD_NAME: &str = "cpu_ram_soak";
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    /// The number of times to loop calculations.
+    /// The number of times to loop calculations. Separate multiple values by ',' (no whitespace).
     #[arg(long, num_args=1.., value_delimiter=',')]
     loop_limit: Vec<u32>,
 }
