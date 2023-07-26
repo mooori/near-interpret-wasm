@@ -27,13 +27,10 @@ async fn main() -> anyhow::Result<()> {
 
     let worker = workspaces::sandbox().await?;
 
-    // TODO still need `project_path_*` variables?
-    let project_path_native = "./contracts/calculations";
-    let wasm_calculations = workspaces::compile_project(project_path_native).await?;
+    let wasm_calculations = workspaces::compile_project("./contracts/calculations").await?;
     let contract_calculations = worker.dev_deploy(&wasm_calculations).await?;
 
-    let project_path_wasmi = "./contracts/calculations-in-wasmi";
-    let wasm_wasmi = workspaces::compile_project(project_path_wasmi).await?;
+    let wasm_wasmi = workspaces::compile_project("./contracts/calculations-in-wasmi").await?;
     let contract_wasmi = worker.dev_deploy(&wasm_wasmi).await?;
 
     let mut gas_usage = GasUsage::default();
