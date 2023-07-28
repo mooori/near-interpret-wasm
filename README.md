@@ -1,6 +1,6 @@
 # About
 
-Execute `contracts/calculations` as Near contract and interpret it inside another Near contract by running the following command. Gas usage will be printed to standard output and the calculations are repeated `loop-limit` times.
+Execute [`contracts/calculations`](/contracts/calculations/src/lib.rs) as Near contract and interpret it inside another Near contract by running the following command. Gas usage will be printed to standard output and the calculations are repeated `loop-limit` times.
 
 # Usage
 
