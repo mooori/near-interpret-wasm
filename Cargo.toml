@@ -7,6 +7,9 @@ publish = false
 
 [dependencies]
 anyhow = "1.0"
+comfy-table = "7.0.1"
+clap = { version = "4.3.17", features = ["derive"] }
 tokio = { version = "1.29.1", features = ["full"] }
+rust_decimal = "1.30.0"
 # Using feature `unstable` for `workspaces::compile_project`.
 workspaces = { version = "0.7.0", features = ["unstable"] }
