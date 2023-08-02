@@ -15,7 +15,7 @@ wasmi: $(WASM_BYTECODE)
 .PHONY: wamr_fast
 # Assumes the executable invoked in the command has `fast interpreter` enabled.
 wamr_fast: $(WASM_BYTECODE)
-	$(PERF_CMD) ./iwasm --interp -f $(WASM_FN) $(WASM_BYTECODE) $(LOOP_LIMIT)
+	$(PERF_CMD) iwasm --interp -f $(WASM_FN) $(WASM_BYTECODE) $(LOOP_LIMIT)
 
 .PHONY: wamr_classic
 # Assumes the executable invoked in the command has `classic interpreter` enabled.
